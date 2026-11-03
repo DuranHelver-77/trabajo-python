@@ -1,5 +1,5 @@
 class ErrorAplicacion(Exception):
-    """Clase base de todas las excepciones propias (400)."""
+    """Clase base de todas las excepciones propias."""
     status_code: int = 400
 
     def __init__(self, detail: str):
@@ -20,3 +20,18 @@ class Conflicto(ErrorAplicacion):
 class ReglaNegocio(ErrorAplicacion):
     """Una regla de la biblioteca no se cumple (422)."""
     status_code = 422
+
+
+class NoAutenticado(ErrorAplicacion):
+    """Falta token, es inválido, venció o es del tipo equivocado (401)."""
+    status_code = 401
+
+
+class Prohibido(ErrorAplicacion):
+    """Autenticado pero sin permiso (403)."""
+    status_code = 403
+
+
+class CuentaBloqueada(ErrorAplicacion):
+    """Demasiados intentos fallidos de inicio de sesión (423)."""
+    status_code = 423

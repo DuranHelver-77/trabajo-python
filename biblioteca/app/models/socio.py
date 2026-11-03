@@ -12,6 +12,7 @@ class Socio(Base):
     email = Column(String(150), unique=True, nullable=False)
     telefono = Column(String(15), nullable=True)
     activo = Column(Boolean, default=True, nullable=False)
-    fecha_alta = Column(DateTime, server_default=func.now(), nullable=False)
+    fecha_alta = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     prestamos = relationship("Prestamo", back_populates="socio")
+    usuario = relationship("Usuario", back_populates="socio", uselist=False)

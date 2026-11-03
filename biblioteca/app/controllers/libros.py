@@ -54,10 +54,11 @@ def listar_libros(
         q = q.order_by(Libro.anio_publicacion.desc())
     else:
         q = q.order_by(Libro.titulo)
+    total = q.count()
     libros = q.offset(skip).limit(limit).all()
     for l in libros:
         _enriquecer(l, db)
-    return libros
+    return libros, total
 
 
 def obtener_libro(db: Session, libro_id: int) -> Libro:
@@ -124,7 +125,7 @@ def eliminar_libro(db: Session, libro_id: int) -> None:
     db.commit()
 
 
-def libros_de_autor(db: Session, autor_id: int, skip: int, limit: int):
+def libros_de_autor(db: Session, autor_id: int, skip: int, limit: int) -> tuple:
     if not db.get(Autor, autor_id):
         raise NoEncontrado(f"Autor {autor_id} no encontrado")
     libros = (
@@ -137,4 +138,7 @@ def libros_de_autor(db: Session, autor_id: int, skip: int, limit: int):
     )
     for l in libros:
         _enriquecer(l, db)
-    return libros
+    total = (
+        db.query(func.count(Libro.id)).filter(Libro.autor_id == autor_id).scalar()
+    )
+    return libros, total

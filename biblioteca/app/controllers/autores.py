@@ -5,11 +5,13 @@ from app.core.exceptions import Conflicto, NoEncontrado
 from typing import Optional
 
 
-def listar_autores(db: Session, skip: int, limit: int, nacionalidad: Optional[str]):
+def listar_autores(db: Session, skip: int, limit: int, nacionalidad: Optional[str]) -> tuple:
     q = db.query(Autor)
     if nacionalidad:
         q = q.filter(Autor.nacionalidad.ilike(f"%{nacionalidad}%"))
-    return q.offset(skip).limit(limit).all()
+    total = q.count()
+    items = q.offset(skip).limit(limit).all()
+    return items, total
 
 
 def obtener_autor(db: Session, autor_id: int) -> Autor:

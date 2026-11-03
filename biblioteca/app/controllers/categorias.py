@@ -4,8 +4,11 @@ from app.schemas.categoria import CategoriaCreate, CategoriaUpdate
 from app.core.exceptions import Conflicto, NoEncontrado
 
 
-def listar_categorias(db: Session, skip: int, limit: int):
-    return db.query(Categoria).offset(skip).limit(limit).all()
+def listar_categorias(db: Session, skip: int, limit: int) -> tuple:
+    q = db.query(Categoria)
+    total = q.count()
+    items = q.offset(skip).limit(limit).all()
+    return items, total
 
 
 def obtener_categoria(db: Session, categoria_id: int) -> Categoria:

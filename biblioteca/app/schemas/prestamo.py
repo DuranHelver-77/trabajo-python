@@ -32,8 +32,20 @@ class PrestamoOut(BaseModel):
     fecha_limite: date
     fecha_devolucion: Optional[date] = None
     multa: Decimal
+    multa_pagada: bool = False
     estado: str
+    registrado_por_id: Optional[int] = None
     socio: Optional[SocioOut] = None
     libro: Optional[LibroOut] = None
+
+    model_config = {"from_attributes": True}
+
+
+class MultaInfo(BaseModel):
+    """Información de deuda de multas del socio."""
+    prestamo_id: int
+    libro_titulo: str
+    multa: Decimal
+    fecha_limite: date
 
     model_config = {"from_attributes": True}

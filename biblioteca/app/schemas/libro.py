@@ -43,7 +43,7 @@ class LibroBase(BaseModel):
 
 
 class LibroCreate(LibroBase):
-    categoria_ids: List[int] = Field(..., min_length=1, max_length=5)
+    categoria_ids: List[int] = Field(default_factory=list, min_length=0, max_length=5)
 
     @field_validator("categoria_ids")
     @classmethod

@@ -1,17 +1,24 @@
 from datetime import date
-from sqlalchemy.orm import Session, selectinload
-from app.models.socio import Socio
-from app.models.prestamo import Prestamo
-from app.schemas.socio import SocioCreate, SocioUpdate
-from app.core.exceptions import Conflicto, NoEncontrado
 from typing import Optional
 
+from sqlalchemy import func
+from sqlalchemy.orm import Session, selectinload
 
-def listar_socios(db: Session, skip: int, limit: int, activo: Optional[bool]):
+from app.core.exceptions import Conflicto, NoEncontrado
+from app.models.prestamo import Prestamo
+from app.models.socio import Socio
+from app.schemas.socio import SocioActualizarPropio, SocioCreate, SocioUpdate
+
+
+def listar_socios(
+    db: Session, skip: int, limit: int, activo: Optional[bool]
+) -> tuple[list[Socio], int]:
     q = db.query(Socio)
     if activo is not None:
         q = q.filter(Socio.activo == activo)
-    return q.offset(skip).limit(limit).all()
+    total = q.count()
+    items = q.offset(skip).limit(limit).all()
+    return items, total
 
 
 def obtener_socio(db: Session, socio_id: int) -> Socio:
@@ -44,11 +51,24 @@ def actualizar_socio(db: Session, socio_id: int, datos: SocioUpdate) -> Socio:
     return socio
 
 
+def actualizar_socio_propio(
+    db: Session, socio_id: int, datos: SocioActualizarPropio
+) -> Socio:
+    """Actualización limitada (solo nombre y teléfono) para el socio autenticado."""
+    socio = obtener_socio(db, socio_id)
+    cambios = datos.model_dump(exclude_unset=True)
+    for k, v in cambios.items():
+        setattr(socio, k, v)
+    db.commit()
+    db.refresh(socio)
+    return socio
+
+
 def eliminar_socio(db: Session, socio_id: int) -> None:
     socio = obtener_socio(db, socio_id)
     tiene_historial = db.query(Prestamo).filter(Prestamo.socio_id == socio_id).first()
     if tiene_historial:
-        # Borrado logico: solo desactivar
+        # Borrado lógico
         socio.activo = False
         db.commit()
     else:
@@ -58,7 +78,7 @@ def eliminar_socio(db: Session, socio_id: int) -> None:
 
 def prestamos_de_socio(
     db: Session, socio_id: int, skip: int, limit: int, estado: Optional[str]
-):
+) -> tuple[list[Prestamo], int]:
     obtener_socio(db, socio_id)  # verifica existencia
     hoy = date.today()
     q = (
@@ -78,4 +98,6 @@ def prestamos_de_socio(
         )
     elif estado == "devuelto":
         q = q.filter(Prestamo.fecha_devolucion.isnot(None))
-    return q.offset(skip).limit(limit).all()
+    total = q.count()
+    items = q.offset(skip).limit(limit).all()
+    return items, total
