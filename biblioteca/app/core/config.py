@@ -20,7 +20,11 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 7
 
     # CORS
-    cors_origins: list[str] = ["http://localhost:5173"]
+    cors_origins: list[str] = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "https://biblioteca-frontend-mui3.onrender.com",
+    ]
 
     # Entorno
     environment: Literal["dev", "test", "prod"] = "dev"
