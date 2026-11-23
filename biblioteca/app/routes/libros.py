@@ -1,6 +1,6 @@
 """Rutas de libros con autenticación y autorización por rol."""
 from typing import Optional
-from fastapi import APIRouter
+from fastapi import APIRouter, File, UploadFile
 
 from app.core.dependencies import CurrentUser, PaginacionDep, SessionDep, Staff, requiere_rol
 from app.models.usuario import RolUsuario
@@ -88,6 +88,41 @@ def actualizar(libro_id: int, datos: LibroUpdate, db: SessionDep):
 )
 def eliminar(libro_id: int, db: SessionDep):
     ctrl.eliminar_libro(db, libro_id)
+
+
+@router.post(
+    "/libros/{libro_id}/portada",
+    response_model=LibroOut,
+    summary="Subir portada de libro",
+    responses={
+        401: {"description": "No autenticado"},
+        403: {"description": "Sin permiso"},
+        404: {"description": "Libro no encontrado"},
+        422: {"description": "Error de validación o regla de negocio"},
+    },
+    dependencies=[requiere_rol(RolUsuario.admin, RolUsuario.bibliotecario)],
+)
+def subir_portada(
+    libro_id: int,
+    db: SessionDep,
+    archivo: UploadFile = File(..., description="Imagen JPG, PNG o WEBP (máx. 5 MB)"),
+):
+    return ctrl.actualizar_portada_libro(db, libro_id, archivo)
+
+
+@router.delete(
+    "/libros/{libro_id}/portada",
+    response_model=LibroOut,
+    summary="Eliminar portada de libro",
+    responses={
+        401: {"description": "No autenticado"},
+        403: {"description": "Sin permiso"},
+        404: {"description": "Libro no encontrado"},
+    },
+    dependencies=[requiere_rol(RolUsuario.admin, RolUsuario.bibliotecario)],
+)
+def eliminar_portada(libro_id: int, db: SessionDep):
+    return ctrl.eliminar_portada_libro(db, libro_id)
 
 
 @router.get(

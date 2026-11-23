@@ -80,3 +80,19 @@ class TestLibrosPermisos:
 
         resp = client.delete(f"/api/v1/libros/{libro_id}", headers=admin_headers)
         assert resp.status_code == 204
+
+
+class TestPortadaLibro:
+    def test_subir_portada_sin_token_401(self, client):
+        resp = client.post("/api/v1/libros/1/portada")
+        assert resp.status_code == 401
+
+    def test_subir_portada_socio_403(self, client, db):
+        registrar_socio(client, "socio_portada@example.com", "Socio Portada")
+        headers = token_headers(client, "socio_portada@example.com")
+        resp = client.post(
+            "/api/v1/libros/1/portada",
+            files={"archivo": ("test.jpg", b"dummy content", "image/jpeg")},
+            headers=headers,
+        )
+        assert resp.status_code == 403

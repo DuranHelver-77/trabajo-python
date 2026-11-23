@@ -1,4 +1,6 @@
 from enum import Enum
+from typing import Optional
+from fastapi import UploadFile
 from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
 from app.models.libro import Libro
@@ -7,7 +9,7 @@ from app.models.categoria import Categoria
 from app.models.prestamo import Prestamo
 from app.schemas.libro import LibroCreate, LibroUpdate
 from app.core.exceptions import Conflicto, NoEncontrado, ReglaNegocio
-from typing import Optional
+from app.core.cloudinary import subir_imagen_libro, eliminar_imagen
 
 
 class OrdenLibro(str, Enum):
@@ -121,8 +123,33 @@ def eliminar_libro(db: Session, libro_id: int) -> None:
     activos = _activos_libro(db, libro_id)
     if activos:
         raise Conflicto("No se puede eliminar: el libro tiene prestamos sin devolver")
+    if libro.portada_public_id:
+        eliminar_imagen(libro.portada_public_id)
     db.delete(libro)
     db.commit()
+
+
+def actualizar_portada_libro(db: Session, libro_id: int, archivo: UploadFile) -> Libro:
+    libro = obtener_libro(db, libro_id)
+    url, public_id = subir_imagen_libro(archivo)
+    if libro.portada_public_id:
+        eliminar_imagen(libro.portada_public_id)
+    libro.portada_url = url
+    libro.portada_public_id = public_id
+    db.commit()
+    db.refresh(libro)
+    return _enriquecer(libro, db)
+
+
+def eliminar_portada_libro(db: Session, libro_id: int) -> Libro:
+    libro = obtener_libro(db, libro_id)
+    if libro.portada_public_id:
+        eliminar_imagen(libro.portada_public_id)
+        libro.portada_url = None
+        libro.portada_public_id = None
+        db.commit()
+        db.refresh(libro)
+    return _enriquecer(libro, db)
 
 
 def libros_de_autor(db: Session, autor_id: int, skip: int, limit: int) -> tuple:
