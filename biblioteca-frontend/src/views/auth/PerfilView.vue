@@ -31,15 +31,15 @@
           </div>
           <div class="form-group">
             <label class="label-field">Nueva contraseña</label>
-            <input v-model="passForm.password_nuevo" type="password" class="input-field" required>
+            <input v-model="passForm.password_nueva" type="password" class="input-field" required>
           </div>
           <div class="form-group">
             <label class="label-field">Confirmar nueva contraseña</label>
-            <input v-model="passForm.password_nuevo2" type="password" class="input-field" required>
+            <input v-model="passForm.password_nueva2" type="password" class="input-field" required>
           </div>
           <div v-if="passError" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{{ passError }}</div>
           <div v-if="passOk" class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">Contraseña actualizada exitosamente.</div>
-          <button type="submit" :disabled="passLoading || passForm.password_nuevo !== passForm.password_nuevo2" class="btn btn-primary">
+          <button type="submit" :disabled="passLoading || passForm.password_nueva !== passForm.password_nueva2" class="btn btn-primary">
             {{ passLoading ? 'Guardando…' : 'Actualizar contraseña' }}
           </button>
         </form>
@@ -68,13 +68,13 @@
 import { ref, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
-import { authApi, sociosApi } from '@/api/client'
+import { authApi, sociosApi, parseError } from '@/api/client'
 import PageHeader from '@/components/PageHeader.vue'
 
 const auth = useAuthStore()
 const toast = useToastStore()
 
-const passForm = ref({ password_actual: '', password_nuevo: '', password_nuevo2: '' })
+const passForm = ref({ password_actual: '', password_nueva: '', password_nueva2: '' })
 const passError = ref(''), passOk = ref(false), passLoading = ref(false)
 
 const socio = ref(null)
@@ -94,13 +94,13 @@ onMounted(async () => {
 })
 
 async function cambiarPass() {
-  if (passForm.value.password_nuevo !== passForm.value.password_nuevo2) { passError.value = 'Las contraseñas no coinciden'; return }
+  if (passForm.value.password_nueva !== passForm.value.password_nueva2) { passError.value = 'Las contraseñas no coinciden'; return }
   passError.value = ''; passOk.value = false; passLoading.value = true
   try {
-    await authApi.cambiarPassword({ password_actual: passForm.value.password_actual, password_nuevo: passForm.value.password_nuevo, password_nuevo2: passForm.value.password_nuevo2 })
+    await authApi.cambiarPassword({ password_actual: passForm.value.password_actual, password_nueva: passForm.value.password_nueva })
     passOk.value = true
-    passForm.value = { password_actual: '', password_nuevo: '', password_nuevo2: '' }
-  } catch (e) { passError.value = e.response?.data?.detail || 'Error al cambiar contraseña' }
+    passForm.value = { password_actual: '', password_nueva: '', password_nueva2: '' }
+  } catch (e) { passError.value = parseError(e) }
   finally { passLoading.value = false }
 }
 

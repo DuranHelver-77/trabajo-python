@@ -40,6 +40,19 @@ api.interceptors.response.use(
   }
 )
 
+export function parseError(e) {
+  const detail = e.response?.data?.detail
+  if (!detail) return e.message || 'Ocurrió un error inesperado'
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail)) {
+    return detail.map(err => {
+      const campo = err.loc ? err.loc[err.loc.length - 1] : ''
+      return `${campo ? campo + ': ' : ''}${err.msg}`
+    }).join('. ')
+  }
+  return JSON.stringify(detail)
+}
+
 // ── Auth ─────────────────────────────────────────────────────────────────────
 export const authApi = {
   login: (username, password) => {
