@@ -70,7 +70,27 @@ async function handleLogout() {
 </script>
 
 <style scoped>
-.nav-link      { @apply px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-blue-600 hover:bg-blue-50 transition; }
-.dropdown-item { @apply block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition; }
+.nav-link {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #4b5563;
+  transition: all 0.15s ease;
+}
+.nav-link:hover {
+  color: #2563eb;
+  background-color: #eff6ff;
+}
+.dropdown-item {
+  display: block;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  color: #374151;
+  transition: all 0.15s ease;
+}
+.dropdown-item:hover {
+  background-color: #f9fafb;
+}
 </style>
 
