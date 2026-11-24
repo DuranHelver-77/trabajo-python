@@ -32,28 +32,82 @@
             <span v-if="p.multa > 0" :class="p.multa_pagada ? 'badge-green' : 'badge-red'">
               💰 Multa: ${{ p.multa }} {{ p.multa_pagada ? '(pagada)' : '(pendiente)' }}
             </span>
+            <button 
+              v-if="!p.fecha_devolucion" 
+              @click="abrirDevolucion(p)" 
+              class="btn btn-secondary btn-sm mt-1"
+            >
+              ↩️ Devolver libro
+            </button>
           </div>
         </div>
       </div>
       <Pagination :page="page" :limit="limit" :total="total" :skip="skip" @change="cambiarPagina" />
     </template>
+
+    <!-- Modal confirmar devolución -->
+    <ModalBase v-if="modalDevolucion" title="Devolver libro" @close="modalDevolucion = false">
+      <div class="space-y-4">
+        <p class="text-sm text-gray-600">
+          ¿Confirmas la entrega y devolución del libro <strong class="text-gray-900">{{ prestamoSeleccionado?.libro?.titulo }}</strong>?
+        </p>
+        <div v-if="errorDevolucion" class="bg-red-50 text-red-700 p-3 rounded-lg text-sm border border-red-200">
+          {{ errorDevolucion }}
+        </div>
+        <div class="flex justify-end gap-3 pt-2">
+          <button type="button" @click="modalDevolucion = false" class="btn btn-secondary">Cancelar</button>
+          <button type="button" @click="confirmarDevolucion" :disabled="procesando" class="btn btn-primary">
+            {{ procesando ? 'Devolviendo...' : 'Confirmar Devolución' }}
+          </button>
+        </div>
+      </div>
+    </ModalBase>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { sociosApi } from '@/api/client'
+import { sociosApi, prestamosApi, parseError } from '@/api/client'
+import { useToastStore } from '@/stores/toast'
 import PageHeader from '@/components/PageHeader.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import Pagination from '@/components/Pagination.vue'
+import ModalBase from '@/components/ModalBase.vue'
 
+const toast = useToastStore()
 const prestamos = ref([])
 const estado = ref('')
 const loading = ref(true)
 const total = ref(0), page = ref(1), limit = 10, skip = ref(0)
 
+const modalDevolucion = ref(false)
+const prestamoSeleccionado = ref(null)
+const procesando = ref(false)
+const errorDevolucion = ref('')
+
 const estadoBadge = (e) => ({ activo: 'badge-blue', devuelto: 'badge-green', vencido: 'badge-red' }[e] || 'badge-gray')
+
+function abrirDevolucion(p) {
+  prestamoSeleccionado.value = p
+  errorDevolucion.value = ''
+  modalDevolucion.value = true
+}
+
+async function confirmarDevolucion() {
+  procesando.value = true
+  errorDevolucion.value = ''
+  try {
+    await prestamosApi.devolver(prestamoSeleccionado.value.id, {})
+    toast.success('¡Libro devuelto con éxito!')
+    modalDevolucion.value = false
+    cargar()
+  } catch (err) {
+    errorDevolucion.value = parseError(err)
+  } finally {
+    procesando.value = false
+  }
+}
 
 async function cargar() {
   loading.value = true

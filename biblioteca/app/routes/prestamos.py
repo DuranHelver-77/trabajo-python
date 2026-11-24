@@ -103,9 +103,16 @@ def crear(datos: PrestamoCreate, db: SessionDep, usuario: CurrentUser):
         404: {"description": "Préstamo no encontrado"},
         409: {"description": "Ya fue devuelto"},
     },
-    dependencies=[requiere_rol(RolUsuario.admin, RolUsuario.bibliotecario)],
 )
-def devolver(prestamo_id: int, datos: PrestamoDevolucion, db: SessionDep):
+def devolver(prestamo_id: int, datos: PrestamoDevolucion, db: SessionDep, usuario: CurrentUser):
+    """
+    Staff puede devolver cualquier préstamo.
+    Un socio puede devolver su propio préstamo.
+    """
+    if usuario.rol == RolUsuario.socio:
+        p = ctrl.obtener_prestamo(db, prestamo_id, usuario)
+        if p.socio_id != usuario.socio_id:
+            raise Prohibido("No puedes devolver un préstamo que no es tuyo")
     return ctrl.devolver_prestamo(db, prestamo_id, datos)
 
 
