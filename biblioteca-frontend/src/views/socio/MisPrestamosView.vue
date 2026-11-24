@@ -4,9 +4,11 @@
     <div class="card mb-4 flex gap-4">
       <select v-model="estado" @change="cargar()" class="input-field max-w-xs">
         <option value="">Todos los estados</option>
+        <option value="pendiente">⏳ Pendiente de aprobación</option>
         <option value="activo">Activo</option>
         <option value="devuelto">Devuelto</option>
         <option value="vencido">Vencido</option>
+        <option value="rechazado">Rechazado</option>
       </select>
     </div>
     <LoadingSpinner v-if="loading" />
@@ -33,12 +35,15 @@
               💰 Multa: ${{ p.multa }} {{ p.multa_pagada ? '(pagada)' : '(pendiente)' }}
             </span>
             <button 
-              v-if="!p.fecha_devolucion" 
+              v-if="p.estado === 'activo' && !p.fecha_devolucion" 
               @click="abrirDevolucion(p)" 
               class="btn btn-secondary btn-sm mt-1"
             >
               ↩️ Devolver libro
             </button>
+            <span v-else-if="p.estado === 'pendiente'" class="text-xs text-yellow-600 font-medium">
+              Esperando revisión de biblioteca
+            </span>
           </div>
         </div>
       </div>
@@ -86,7 +91,13 @@ const prestamoSeleccionado = ref(null)
 const procesando = ref(false)
 const errorDevolucion = ref('')
 
-const estadoBadge = (e) => ({ activo: 'badge-blue', devuelto: 'badge-green', vencido: 'badge-red' }[e] || 'badge-gray')
+const estadoBadge = (e) => ({
+  pendiente: 'badge-yellow',
+  activo: 'badge-blue',
+  devuelto: 'badge-green',
+  vencido: 'badge-red',
+  rechazado: 'badge-gray',
+}[e] || 'badge-gray')
 
 function abrirDevolucion(p) {
   prestamoSeleccionado.value = p

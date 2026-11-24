@@ -17,6 +17,8 @@ MAX_PRESTAMOS_ACTIVOS = 3
 
 
 def _estado(p: Prestamo) -> str:
+    if p.estado in ("pendiente", "rechazado"):
+        return p.estado
     hoy = date.today()
     if p.fecha_devolucion is not None:
         return "devuelto"
@@ -35,6 +37,7 @@ def _activos_socio(db: Session, socio_id: int) -> int:
         db.query(func.count(Prestamo.id))
         .filter(
             Prestamo.socio_id == socio_id,
+            Prestamo.estado.notin_(["devuelto", "rechazado"]),
             Prestamo.fecha_devolucion.is_(None),
         )
         .scalar()
@@ -47,6 +50,7 @@ def _vencidos_socio(db: Session, socio_id: int) -> int:
         db.query(func.count(Prestamo.id))
         .filter(
             Prestamo.socio_id == socio_id,
+            Prestamo.estado.notin_(["devuelto", "rechazado"]),
             Prestamo.fecha_devolucion.is_(None),
             Prestamo.fecha_limite < hoy,
         )
@@ -57,7 +61,11 @@ def _vencidos_socio(db: Session, socio_id: int) -> int:
 def _activos_libro(db: Session, libro_id: int) -> int:
     return (
         db.query(func.count(Prestamo.id))
-        .filter(Prestamo.libro_id == libro_id, Prestamo.fecha_devolucion.is_(None))
+        .filter(
+            Prestamo.libro_id == libro_id,
+            Prestamo.estado.notin_(["devuelto", "rechazado"]),
+            Prestamo.fecha_devolucion.is_(None),
+        )
         .scalar()
     )
 
@@ -100,10 +108,22 @@ def listar_prestamos(
     if libro_id:
         q = q.filter(Prestamo.libro_id == libro_id)
 
-    if estado == "activo":
-        q = q.filter(Prestamo.fecha_devolucion.is_(None), Prestamo.fecha_limite >= hoy)
+    if estado == "pendiente":
+        q = q.filter(Prestamo.estado == "pendiente")
+    elif estado == "rechazado":
+        q = q.filter(Prestamo.estado == "rechazado")
+    elif estado == "activo":
+        q = q.filter(
+            Prestamo.estado == "activo",
+            Prestamo.fecha_devolucion.is_(None),
+            Prestamo.fecha_limite >= hoy,
+        )
     elif estado == "vencido":
-        q = q.filter(Prestamo.fecha_devolucion.is_(None), Prestamo.fecha_limite < hoy)
+        q = q.filter(
+            Prestamo.estado == "activo",
+            Prestamo.fecha_devolucion.is_(None),
+            Prestamo.fecha_limite < hoy,
+        )
     elif estado == "devuelto":
         q = q.filter(Prestamo.fecha_devolucion.isnot(None))
 
@@ -199,6 +219,7 @@ def crear_prestamo(
         libro_id=datos.libro_id,
         fecha_prestamo=fecha_prestamo,
         fecha_limite=fecha_limite,
+        estado="activo",
         multa=Decimal("0"),
         multa_pagada=False,
         registrado_por_id=registrado_por.id if registrado_por else None,
@@ -207,6 +228,104 @@ def crear_prestamo(
     db.commit()
     db.refresh(prestamo)
     return obtener_prestamo(db, prestamo.id)
+
+
+def solicitar_prestamo(
+    db: Session,
+    socio_id: int,
+    libro_id: int,
+    dias: int = 14,
+) -> Prestamo:
+    """Crea una solicitud de préstamo en estado 'pendiente'."""
+    hoy = date.today()
+    from datetime import timedelta
+
+    socio = db.get(Socio, socio_id)
+    if not socio:
+        raise NoEncontrado(f"Socio {socio_id} no encontrado")
+    if not socio.activo:
+        raise ReglaNegocio("El socio no está activo")
+
+    libro = db.get(Libro, libro_id)
+    if not libro:
+        raise NoEncontrado(f"Libro {libro_id} no encontrado")
+
+    if _vencidos_socio(db, socio_id) > 0:
+        raise ReglaNegocio("El socio tiene préstamos vencidos")
+
+    if _activos_socio(db, socio_id) >= MAX_PRESTAMOS_ACTIVOS:
+        raise ReglaNegocio("Límite de préstamos alcanzado (máximo 3)")
+
+    ya_tiene = (
+        db.query(Prestamo)
+        .filter(
+            Prestamo.socio_id == socio_id,
+            Prestamo.libro_id == libro_id,
+            Prestamo.estado.in_(["activo", "pendiente"]),
+            Prestamo.fecha_devolucion.is_(None),
+        )
+        .first()
+    )
+    if ya_tiene:
+        raise Conflicto("Ya tienes este libro prestado o solicitado")
+
+    activos_libro = _activos_libro(db, libro_id)
+    if activos_libro >= libro.ejemplares:
+        raise ReglaNegocio("No hay ejemplares disponibles en este momento")
+
+    if _multas_pendientes(db, socio_id) > 0:
+        raise ReglaNegocio("Tienes multas pendientes por pagar")
+
+    fecha_limite = hoy + timedelta(days=dias)
+    prestamo = Prestamo(
+        socio_id=socio_id,
+        libro_id=libro_id,
+        fecha_prestamo=hoy,
+        fecha_limite=fecha_limite,
+        estado="pendiente",
+        multa=Decimal("0"),
+        multa_pagada=False,
+    )
+    db.add(prestamo)
+    db.commit()
+    db.refresh(prestamo)
+    return obtener_prestamo(db, prestamo.id)
+
+
+def responder_solicitud(
+    db: Session,
+    prestamo_id: int,
+    accion: str,  # 'aprobar' o 'rechazar'
+    respondido_por: Usuario,
+) -> Prestamo:
+    """El administrador o bibliotecario aprueba o rechaza la solicitud."""
+    p = db.get(Prestamo, prestamo_id)
+    if not p:
+        raise NoEncontrado(f"Préstamo {prestamo_id} no encontrado")
+
+    if p.estado != "pendiente":
+        raise Conflicto(f"El préstamo no está pendiente (estado actual: {p.estado})")
+
+    if accion == "aprobar":
+        # Verificar nuevamente disponibilidad
+        libro = db.get(Libro, p.libro_id)
+        activos = _activos_libro(db, p.libro_id)
+        if activos > libro.ejemplares:
+            raise ReglaNegocio("No hay ejemplares disponibles para aprobar")
+
+        p.estado = "activo"
+        p.fecha_prestamo = date.today()
+        from datetime import timedelta
+        p.fecha_limite = date.today() + timedelta(days=14)
+        p.registrado_por_id = respondido_por.id
+    elif accion == "rechazar":
+        p.estado = "rechazado"
+        p.registrado_por_id = respondido_por.id
+    else:
+        raise ReglaNegocio("Acción no válida. Debe ser 'aprobar' o 'rechazar'")
+
+    db.commit()
+    return obtener_prestamo(db, prestamo_id)
 
 
 def devolver_prestamo(

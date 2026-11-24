@@ -1,5 +1,5 @@
 from datetime import date
-from sqlalchemy import Boolean, Column, Date, Numeric, ForeignKey, Integer
+from sqlalchemy import Boolean, Column, Date, Numeric, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
@@ -13,6 +13,7 @@ class Prestamo(Base):
     fecha_prestamo = Column(Date, nullable=False, default=date.today)
     fecha_limite = Column(Date, nullable=False)
     fecha_devolucion = Column(Date, nullable=True)
+    estado = Column(String(20), nullable=False, default="activo")
     multa = Column(Numeric(10, 2), nullable=False, default=0)
     multa_pagada = Column(Boolean, nullable=False, default=False)
     registrado_por_id = Column(

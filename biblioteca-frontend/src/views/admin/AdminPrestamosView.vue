@@ -6,7 +6,11 @@
     <div class="card mb-6 flex flex-wrap gap-3">
       <select v-model="filtroEstado" @change="cargar()" class="input-field max-w-xs">
         <option value="">Todos los estados</option>
-        <option value="activo">Activo</option><option value="devuelto">Devuelto</option><option value="vencido">Vencido</option>
+        <option value="pendiente">⏳ Pendientes de aprobación</option>
+        <option value="activo">Activo</option>
+        <option value="devuelto">Devuelto</option>
+        <option value="vencido">Vencido</option>
+        <option value="rechazado">Rechazado</option>
       </select>
     </div>
 
@@ -23,7 +27,7 @@
             <td class="table-cell text-sm">{{ p.fecha_prestamo }}</td>
             <td class="table-cell text-sm">{{ p.fecha_limite }}</td>
             <td class="table-cell text-sm">{{ p.fecha_devolucion || '—' }}</td>
-            <td class="table-cell"><span :class="{ activo: 'badge-blue', devuelto: 'badge-green', vencido: 'badge-red' }[p.estado] || 'badge-gray'">{{ p.estado }}</span></td>
+            <td class="table-cell"><span :class="{ pendiente: 'badge-yellow', activo: 'badge-blue', devuelto: 'badge-green', vencido: 'badge-red', rechazado: 'badge-gray' }[p.estado] || 'badge-gray'">{{ p.estado }}</span></td>
             <td class="table-cell">
               <div v-if="p.multa > 0">
                 <span :class="p.multa_pagada ? 'badge-green' : 'badge-red'">${{ p.multa }}</span>
@@ -32,7 +36,12 @@
               <span v-else class="text-gray-400 text-xs">—</span>
             </td>
             <td class="table-cell">
-              <button v-if="!p.fecha_devolucion" @click="abrirDevolucion(p)" class="btn btn-secondary btn-sm">↩️ Devolver</button>
+              <div v-if="p.estado === 'pendiente'" class="flex gap-2">
+                <button @click="aprobarSolicitud(p)" class="btn btn-success btn-sm">✓ Aprobar</button>
+                <button @click="rechazarSolicitud(p)" class="btn btn-danger btn-sm">✗ Rechazar</button>
+              </div>
+              <button v-else-if="p.estado === 'activo' && !p.fecha_devolucion" @click="abrirDevolucion(p)" class="btn btn-secondary btn-sm">↩️ Devolver</button>
+              <span v-else class="text-gray-400 text-xs">—</span>
             </td>
           </tr>
           <tr v-if="!prestamos.length"><td colspan="8"><EmptyState icon="📋" message="No hay préstamos" /></td></tr>
@@ -135,6 +144,26 @@ async function confirmarDevolucion() {
 async function pagarMulta(p) {
   try { await prestamosApi.pagarMulta(p.id); toast.success('Multa registrada como pagada'); cargar() }
   catch (e) { toast.error(e.response?.data?.detail || 'Error') }
+}
+
+async function aprobarSolicitud(p) {
+  try {
+    await prestamosApi.aprobar(p.id)
+    toast.success('Solicitud aprobada con éxito')
+    cargar()
+  } catch (e) {
+    toast.error(e.response?.data?.detail || 'Error al aprobar')
+  }
+}
+
+async function rechazarSolicitud(p) {
+  try {
+    await prestamosApi.rechazar(p.id)
+    toast.info('Solicitud rechazada')
+    cargar()
+  } catch (e) {
+    toast.error(e.response?.data?.detail || 'Error al rechazar')
+  }
 }
 onMounted(async () => {
   const [, s, l] = await Promise.all([cargar(), sociosApi.listar({ limit: 100 }), librosApi.listar({ limit: 100 })])

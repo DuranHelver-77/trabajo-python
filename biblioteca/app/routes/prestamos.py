@@ -63,16 +63,48 @@ def obtener(prestamo_id: int, db: SessionDep, usuario: CurrentUser):
     },
 )
 def solicitar(datos: PrestamoSolicitar, db: SessionDep, usuario: CurrentUser):
-    """Permite a un socio solicitar un préstamo directamente."""
+    """Permite a un socio solicitar un préstamo (queda en estado pendiente de aprobación)."""
     if usuario.rol != RolUsuario.socio or not usuario.socio_id:
         raise Prohibido("Solo los socios con perfil activo pueden solicitar préstamos")
     
-    prestamo_create = PrestamoCreate(
+    return ctrl.solicitar_prestamo(
+        db,
         socio_id=usuario.socio_id,
         libro_id=datos.libro_id,
         dias=datos.dias
     )
-    return ctrl.crear_prestamo(db, prestamo_create, registrado_por=usuario)
+
+
+@router.post(
+    "/{prestamo_id}/aprobar",
+    response_model=PrestamoOut,
+    summary="Aprobar solicitud de préstamo",
+    responses={
+        401: {"description": "No autenticado"},
+        403: {"description": "Sin permiso"},
+        404: {"description": "Préstamo no encontrado"},
+        409: {"description": "El préstamo no está pendiente"},
+    },
+    dependencies=[requiere_rol(RolUsuario.admin, RolUsuario.bibliotecario)],
+)
+def aprobar(prestamo_id: int, db: SessionDep, usuario: CurrentUser):
+    return ctrl.responder_solicitud(db, prestamo_id, "aprobar", respondido_por=usuario)
+
+
+@router.post(
+    "/{prestamo_id}/rechazar",
+    response_model=PrestamoOut,
+    summary="Rechazar solicitud de préstamo",
+    responses={
+        401: {"description": "No autenticado"},
+        403: {"description": "Sin permiso"},
+        404: {"description": "Préstamo no encontrado"},
+        409: {"description": "El préstamo no está pendiente"},
+    },
+    dependencies=[requiere_rol(RolUsuario.admin, RolUsuario.bibliotecario)],
+)
+def rechazar(prestamo_id: int, db: SessionDep, usuario: CurrentUser):
+    return ctrl.responder_solicitud(db, prestamo_id, "rechazar", respondido_por=usuario)
 
 
 @router.post(
