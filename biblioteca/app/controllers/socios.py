@@ -79,6 +79,8 @@ def eliminar_socio(db: Session, socio_id: int) -> None:
 def prestamos_de_socio(
     db: Session, socio_id: int, skip: int, limit: int, estado: Optional[str]
 ) -> tuple[list[Prestamo], int]:
+    from app.controllers.prestamos import _enriquecer
+
     obtener_socio(db, socio_id)  # verifica existencia
     hoy = date.today()
     q = (
@@ -100,4 +102,6 @@ def prestamos_de_socio(
         q = q.filter(Prestamo.fecha_devolucion.isnot(None))
     total = q.count()
     items = q.offset(skip).limit(limit).all()
+    for p in items:
+        _enriquecer(p)
     return items, total
