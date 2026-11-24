@@ -10,9 +10,21 @@
           <span v-else class="text-7xl">📖</span>
         </div>
         <div class="mt-4 space-y-2">
-          <span :class="libro.disponibles > 0 ? 'badge-green' : 'badge-red'" class="w-full justify-center py-2 text-sm">
+          <span :class="libro.disponibles > 0 ? 'badge-green' : 'badge-red'" class="w-full justify-center py-2 text-sm flex items-center">
             {{ libro.disponibles > 0 ? `✅ ${libro.disponibles} ejemplares disponibles` : '❌ Sin ejemplares disponibles' }}
           </span>
+
+          <!-- Botón de solicitar préstamo para socios -->
+          <button 
+            v-if="auth.isSocio && libro.disponibles > 0" 
+            @click="abrirModalSolicitud" 
+            class="btn btn-primary w-full shadow-sm hover:shadow py-2.5 flex items-center justify-center gap-2 mt-3"
+          >
+            📖 Solicitar Préstamo
+          </button>
+          <div v-else-if="!auth.isLoggedIn" class="p-3 bg-blue-50 text-blue-700 text-xs rounded-lg text-center mt-3">
+            Inicia sesión como socio para solicitar este libro.
+          </div>
         </div>
       </div>
       <!-- Info -->
@@ -51,20 +63,75 @@
       </div>
     </div>
     <div v-else class="text-center py-20 text-gray-500">Libro no encontrado</div>
+
+    <!-- Modal Solicitar Préstamo -->
+    <ModalBase v-if="modalSolicitud" title="Confirmar solicitud de préstamo" @close="modalSolicitud = false">
+      <div class="space-y-4">
+        <p class="text-sm text-gray-600">
+          ¿Deseas solicitar en préstamo el libro <strong class="text-gray-900">{{ libro?.titulo }}</strong>?
+        </p>
+        <div class="form-group">
+          <label class="label-field">Días de préstamo (1 a 30):</label>
+          <input v-model.number="diasPrestamo" type="number" min="1" max="30" class="input-field" />
+        </div>
+        <div v-if="errorSolicitud" class="bg-red-50 text-red-700 p-3 rounded-lg text-sm border border-red-200">
+          {{ errorSolicitud }}
+        </div>
+        <div class="flex justify-end gap-3 pt-2">
+          <button type="button" @click="modalSolicitud = false" class="btn btn-secondary">Cancelar</button>
+          <button type="button" @click="confirmarSolicitud" :disabled="solicitando" class="btn btn-primary">
+            {{ solicitando ? 'Solicitando...' : 'Confirmar Préstamo' }}
+          </button>
+        </div>
+      </div>
+    </ModalBase>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
-import { librosApi } from '@/api/client'
+import { useRoute, useRouter } from 'vue-router'
+import { librosApi, prestamosApi, parseError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
+import { useToastStore } from '@/stores/toast'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
+import ModalBase from '@/components/ModalBase.vue'
 
 const route = useRoute()
+const router = useRouter()
 const auth = useAuthStore()
+const toast = useToastStore()
 const libro = ref(null)
 const loading = ref(true)
+
+const modalSolicitud = ref(false)
+const diasPrestamo = ref(14)
+const solicitando = ref(false)
+const errorSolicitud = ref('')
+
+function abrirModalSolicitud() {
+  diasPrestamo.value = 14
+  errorSolicitud.value = ''
+  modalSolicitud.value = true
+}
+
+async function confirmarSolicitud() {
+  solicitando.value = true
+  errorSolicitud.value = ''
+  try {
+    await prestamosApi.solicitar({
+      libro_id: libro.value.id,
+      dias: diasPrestamo.value || 14
+    })
+    toast.success('¡Préstamo realizado con éxito!')
+    modalSolicitud.value = false
+    router.push('/mis-prestamos')
+  } catch (err) {
+    errorSolicitud.value = parseError(err)
+  } finally {
+    solicitando.value = false
+  }
+}
 
 onMounted(async () => {
   try { const { data } = await librosApi.obtener(route.params.id); libro.value = data }

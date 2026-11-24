@@ -223,7 +223,7 @@ async function eliminarLibro() {
 }
 
 onMounted(async () => {
-  const [, a, c] = await Promise.all([cargar(), autoresApi.listar({ limit: 200 }), categoriasApi.listar({ limit: 100 })])
+  const [, a, c] = await Promise.all([cargar(), autoresApi.listar({ limit: 100 }), categoriasApi.listar({ limit: 100 })])
   autores.value = a.data.items; categorias.value = c.data.items
 })
 </script>

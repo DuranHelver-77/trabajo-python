@@ -117,6 +117,7 @@ export const prestamosApi = {
   listar: (params) => api.get('/prestamos/', { params }),
   obtener: (id) => api.get(`/prestamos/${id}`),
   crear: (datos) => api.post('/prestamos/', datos),
+  solicitar: (datos) => api.post('/prestamos/solicitar', datos),
   devolver: (id, datos) => api.post(`/prestamos/${id}/devolucion`, datos),
   pagarMulta: (id) => api.post(`/prestamos/${id}/pago-multa`),
 }

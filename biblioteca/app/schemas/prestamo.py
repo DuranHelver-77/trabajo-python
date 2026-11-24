@@ -20,6 +20,18 @@ class PrestamoCreate(BaseModel):
         return v
 
 
+class PrestamoSolicitar(BaseModel):
+    libro_id: int
+    dias: int = 14
+
+    @field_validator("dias")
+    @classmethod
+    def validar_dias(cls, v: int) -> int:
+        if not (1 <= v <= 30):
+            raise ValueError("dias debe estar entre 1 y 30")
+        return v
+
+
 class PrestamoDevolucion(BaseModel):
     fecha_devolucion: Optional[date] = None
 

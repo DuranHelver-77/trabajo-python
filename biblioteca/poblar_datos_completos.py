@@ -344,3 +344,4 @@ db.commit()
 db.close()
 
 print("\n🎉 ¡Carga de datos completa finalizada con éxito!")
+

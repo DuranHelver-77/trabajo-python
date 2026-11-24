@@ -137,7 +137,7 @@ async function pagarMulta(p) {
   catch (e) { toast.error(e.response?.data?.detail || 'Error') }
 }
 onMounted(async () => {
-  const [, s, l] = await Promise.all([cargar(), sociosApi.listar({ limit: 200 }), librosApi.listar({ limit: 200 })])
+  const [, s, l] = await Promise.all([cargar(), sociosApi.listar({ limit: 100 }), librosApi.listar({ limit: 100 })])
   socios.value = s.data.items; librosList.value = l.data.items
 })
 </script>

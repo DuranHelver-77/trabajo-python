@@ -5,7 +5,8 @@ from fastapi import APIRouter
 from app.core.dependencies import CurrentUser, PaginacionDep, SessionDep, Staff, requiere_rol
 from app.models.usuario import RolUsuario
 from app.schemas.pagina import Pagina
-from app.schemas.prestamo import PrestamoCreate, PrestamoDevolucion, PrestamoOut
+from app.schemas.prestamo import PrestamoCreate, PrestamoDevolucion, PrestamoOut, PrestamoSolicitar
+from app.core.exceptions import Prohibido
 import app.controllers.prestamos as ctrl
 
 router = APIRouter(prefix="/prestamos", tags=["Prestamos"])
@@ -47,6 +48,31 @@ def listar(
 def obtener(prestamo_id: int, db: SessionDep, usuario: CurrentUser):
     """Z2 – Un socio recibe 404 si el préstamo no es suyo."""
     return ctrl.obtener_prestamo(db, prestamo_id, usuario)
+
+
+@router.post(
+    "/solicitar",
+    response_model=PrestamoOut,
+    status_code=201,
+    summary="Solicitar préstamo (para socio autenticado)",
+    responses={
+        401: {"description": "No autenticado"},
+        403: {"description": "Sin permiso o no tiene perfil de socio"},
+        409: {"description": "Ya tiene el libro"},
+        422: {"description": "Regla de negocio no cumplida"},
+    },
+)
+def solicitar(datos: PrestamoSolicitar, db: SessionDep, usuario: CurrentUser):
+    """Permite a un socio solicitar un préstamo directamente."""
+    if usuario.rol != RolUsuario.socio or not usuario.socio_id:
+        raise Prohibido("Solo los socios con perfil activo pueden solicitar préstamos")
+    
+    prestamo_create = PrestamoCreate(
+        socio_id=usuario.socio_id,
+        libro_id=datos.libro_id,
+        dias=datos.dias
+    )
+    return ctrl.crear_prestamo(db, prestamo_create, registrado_por=usuario)
 
 
 @router.post(
